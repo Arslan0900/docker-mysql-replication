@@ -1,0 +1,107 @@
+# Documentation for replication of my sql in docker
+
+make a docker-compose.yml file
+
+put the code in file
+
+"
+version: "3.8"
+
+# Here's where we define our services:
+services:
+  # The master server, the OG in this world
+  mysql-master:
+    # We'll use the latest MySQL image from Docker Hub
+    image: mysql:5.7
+    # Give it a cool name (mysql-master is pretty clear, right?)
+    container_name: mysql-master
+    # Extra commands to configure the master for replication
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=row
+    # Set some environment variables for passwords and database details
+    # Remember to replace these with your own strong passwords!
+    environment:
+      MYSQL_ROOT_PASSWORD: your_password
+      MYSQL_DATABASE: your_database # Feel free to change this database name
+      MYSQL_USER: replication_user # This user will handle replication
+      MYSQL_PASSWORD: replication_password
+    # Map the container port (3306) to your host machine's port (also 3306)
+    # This lets you access the master server from your machine
+    ports:
+      - "3308:3306"
+
+  # The replica server, the master's trusty sidekick
+  mysql-slave:
+    # Same image as the master
+    image: mysql:5.7
+    # Another cool name (can you guess what it is?)
+    container_name: mysql-slave
+    # This tells the replica to wait for the master to be ready before starting
+    depends_on:
+      - mysql-master
+    # Similar commands and environment variables as the master
+    command: --server-id=2 --log-bin=mysql-bin --binlog-format=row
+    environment:
+      MYSQL_ROOT_PASSWORD: your_password # Same password for both
+      MYSQL_DATABASE: your_database
+      MYSQL_USER: replication_user
+      MYSQL_PASSWORD: replication_password
+    # Map the container port (3306) to a different host machine port (3307 in this case)
+    ports:
+      - "3309:3306" "
+
+run the command in terminal docker-compose up -d 
+
+this command will run the programme in detach mode
+
+now we will give the command docker exec -it mysql-master mysql -u username -p
+
+Enter Password
+
+now you will enter in mysql-master
+
+USER 'replication_user'@'%' IDENTIFIED WITH BY 'your_password';
+GRANT REPLICATION SLAVE ON *.* TO 'replication_user'@'%';
+FLUSH PRIVILEGES;
+SHOW MASTER STATUS;
+
+SHOW MASTER STATUS command will show you position and file note that this will next
+
+now open docke exec -it mysql-slave mysql -u username -p
+
+use the command 
+CHANGE MASTER TO
+    MASTER_HOST='mysql-master',
+    MASTER_USER='replication_user',
+    MASTER_PASSWORD='replication_password',
+    MASTER_LOG_FILE='mysql-bin.xxxxxx',
+    MASTER_LOG_POS=xxxx;
+
+then
+
+START SLAVE;
+
+SHOW SLAVE STATUS\G
+
+confirm that
+
+Slave_IO_Running: Yes
+Slave_SQL_Running: Yes
+
+if not then ensure that the replication_user has the correct privileges on the master server
+
+SHOW GRANTS FOR 'replication_user'@'%';
+GRANT REPLICATION SLAVE ON *.* TO 'replication_user'@'%';
+GRANT REPLICATION SLAVE ON *.* TO 'replication_user'@'%';
+FLUSH PRIVILEGES;
+
+and 
+check directory
+
+etc/mysql
+
+there will be file my.cnf
+
+insert 
+
+[mysqld]
+log_bin=mysql-bin
